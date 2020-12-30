@@ -13,7 +13,7 @@
 
 #include <Eigen/LU>
 
-#include "../gl.h"
+//#include "../gl.h"
 #include <GLFW/glfw3.h>
 
 #include <cmath>
@@ -201,7 +201,9 @@ namespace glfw
     glfwSetWindowSizeCallback(window,glfw_window_size);
     glfwSetMouseButtonCallback(window,glfw_mouse_press);
     glfwSetScrollCallback(window,glfw_mouse_scroll);
+    #if !defined(__EMSCRIPTEN__)
     glfwSetCharModsCallback(window,glfw_char_mods_callback);
+    #endif
     glfwSetDropCallback(window,glfw_drop_callback);
     // Handle retina displays (windows and mac)
     int width, height;
@@ -224,15 +226,64 @@ namespace glfw
     }
     return EXIT_SUCCESS;
   }
+#ifdef __EMSCRIPTEN__
+  IGL_INLINE bool Viewer::main_loop(int& frame_counter)
+  {
+    const int num_extra_frames = 5;
+    double tic = get_seconds();
+    draw();
+    glfwSwapBuffers(window);
+    if(core().is_animating || frame_counter++ < num_extra_frames)
+    {
+      glfwPollEvents();
+      // In microseconds
+      double duration = 1000000.*(get_seconds()-tic);
+      const double min_duration = 1000000./core().animation_max_fps;
+      if(duration<min_duration)
+      {
+        std::this_thread::sleep_for(std::chrono::microseconds((int)(min_duration-duration)));
+      }
+    }
+    else
+    {
+      glfwWaitEvents();
+      frame_counter = 0;
+    }
+
+    return !glfwWindowShouldClose(window);
+  }
+
+  #include <emscripten/emscripten.h>
+
+  struct em_loop_payload_t
+  {
+    Viewer* viewer;
+    int frame_counter;
+  };
+
+  IGL_INLINE void em_main_loop_callback(void* arg)
+  {
+    auto payload = reinterpret_cast<em_loop_payload_t*>(arg);
+    if (!payload->viewer->main_loop(payload->frame_counter)) {
+      emscripten_cancel_main_loop();
+    }
+  }
+  #endif
 
   IGL_INLINE bool Viewer::launch_rendering(bool loop)
   {
     // glfwMakeContextCurrent(window);
     // Rendering loop
+    int frame_counter = 0;
+    #ifndef __EMSCRIPTEN__
     const int num_extra_frames = 5;
     int frame_counter = 0;
     while (!glfwWindowShouldClose(window))
+    #else
+    if(!loop)
+    #endif
     {
+      #ifndef __EMSCRIPTEN__
       double tic = get_seconds();
       draw();
       glfwSwapBuffers(window);
@@ -255,6 +306,7 @@ namespace glfw
       if (!loop)
         return !glfwWindowShouldClose(window);
 
+      #endif
       #ifdef __APPLE__
         static bool first_time_hack  = true;
         if(first_time_hack) {
@@ -263,7 +315,14 @@ namespace glfw
           first_time_hack = false;
         }
       #endif
+      return main_loop(frame_counter);
     }
+    #ifdef __EMSCRIPTEN__
+    em_loop_payload_t payload {this, frame_counter};
+    emscripten_set_main_loop_arg(em_main_loop_callback, &payload, 0, true);
+    #else
+    while (main_loop(frame_counter)) {}
+    #endif
     return EXIT_SUCCESS;
   }
 

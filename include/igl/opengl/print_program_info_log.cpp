@@ -22,7 +22,7 @@ IGL_INLINE void igl::opengl::print_program_info_log(const GLuint obj)
   {
     infoLog = (char *)malloc(infologLength);
     glGetProgramInfoLog(obj, infologLength, &charsWritten, infoLog);
-    printf("%s\n",infoLog);
+    printf("IGL LOG: %s\n",infoLog);
     free(infoLog);
   }
 }

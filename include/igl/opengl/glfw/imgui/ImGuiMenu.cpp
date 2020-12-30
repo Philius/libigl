@@ -39,7 +39,11 @@ IGL_INLINE void ImGuiMenu::init(igl::opengl::glfw::Viewer *_viewer)
       static ImGuiContext * __global_context = ImGui::CreateContext();
       context_ = __global_context;
     }
+    #ifdef __EMSCRIPTEN__
+    const char* glsl_version = "#version 300 es";
+    #else
     const char* glsl_version = "#version 150";
+    #endif
     ImGui_ImplGlfw_InitForOpenGL(viewer->window, false);
     ImGui_ImplOpenGL3_Init(glsl_version);
     ImGui::GetIO().IniFilename = nullptr;
@@ -320,7 +324,12 @@ IGL_INLINE float ImGuiMenu::hidpi_scaling()
   // Computes scaling factor for hidpi devices
   float xscale, yscale;
   GLFWwindow* window = glfwGetCurrentContext();
+  #ifdef __EMSCRIPTEN__
+  xscale = 1;
+  yscale = 1;
+  #else
   glfwGetWindowContentScale(window, &xscale, &yscale);
+  #endif
   return 0.5 * (xscale + yscale);
 }
 

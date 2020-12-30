@@ -211,8 +211,13 @@ IGL_INLINE void igl::opengl::MeshGL::bind_labels(const TextGL& labels)
 
 IGL_INLINE void igl::opengl::MeshGL::draw_mesh(bool solid)
 {
+  #if defined(__EMSCRIPTEN__)
+  // TODO: In webgl, wireframe must be drawn using a shader and barycentric coordinates
+  if (!solid)
+    return;
+  #else
   glPolygonMode(GL_FRONT_AND_BACK, solid ? GL_FILL : GL_LINE);
-
+  #endif
   /* Avoid Z-buffer fighting between filled triangles & wireframe lines */
   if (solid)
   {
@@ -222,7 +227,9 @@ IGL_INLINE void igl::opengl::MeshGL::draw_mesh(bool solid)
   glDrawElements(GL_TRIANGLES, 3*F_vbo.rows(), GL_UNSIGNED_INT, 0);
 
   glDisable(GL_POLYGON_OFFSET_FILL);
+  #if !defined(__EMSCRIPTEN__)
   glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+  #endif
 }
 
 IGL_INLINE void igl::opengl::MeshGL::draw_overlay_lines()
@@ -248,7 +255,14 @@ IGL_INLINE void igl::opengl::MeshGL::init()
   }
   is_initialized = true;
   std::string mesh_vertex_shader_string =
+  #if defined(__EMSCRIPTEN__)
+R"(#version 300 es
+)"
+  #else
 R"(#version 150
+)"
+  #endif
+R"(  precision mediump float;
   uniform mat4 view;
   uniform mat4 proj;
   uniform mat4 normal_matrix;
@@ -279,7 +293,14 @@ R"(#version 150
 )";
 
   std::string mesh_fragment_shader_string =
+  #if defined(__EMSCRIPTEN__)
+R"(#version 300 es
+)"
+  #else
 R"(#version 150
+)"
+  #endif
+R"(  precision mediump float;
   uniform mat4 view;
   uniform mat4 proj;
   uniform vec4 fixed_color;
@@ -322,7 +343,7 @@ R"(#version 150
       dot_prod_specular = float(abs(dot_prod)==dot_prod) * abs(max (dot_prod_specular, -double_sided));
       float specular_factor = pow (dot_prod_specular, specular_exponent);
       vec3 Is = Ls * vec3(Ksi) * specular_factor;    // specular intensity
-      vec4 color = vec4(lighting_factor * (Is + Id) + Ia + (1.0-lighting_factor) * vec3(Kdi),(Kai.a+Ksi.a+Kdi.a)/3);
+      vec4 color = vec4(lighting_factor * (Is + Id) + Ia + (1.0-lighting_factor) * vec3(Kdi),(Kai.a+Ksi.a+Kdi.a)/3.0);
       outColor = mix(vec4(1,1,1,1), texture(tex, texcoordi), texture_factor) * color;
       if (fixed_color != vec4(0.0)) outColor = fixed_color;
     }
@@ -330,7 +351,14 @@ R"(#version 150
 )";
 
   std::string overlay_vertex_shader_string =
+  #if defined(__EMSCRIPTEN__)
+R"(#version 300 es
+)"
+  #else
 R"(#version 150
+)"
+  #endif
+R"(  precision mediump float;
   uniform mat4 view;
   uniform mat4 proj;
   in vec3 position;
@@ -345,7 +373,14 @@ R"(#version 150
 )";
 
   std::string overlay_fragment_shader_string =
+  #if defined(__EMSCRIPTEN__)
+R"(#version 300 es
+)"
+  #else
 R"(#version 150
+)"
+  #endif
+R"(  precision mediump float;
   in vec3 color_frag;
   out vec4 outColor;
   void main()
@@ -355,7 +390,14 @@ R"(#version 150
 )";
 
   std::string overlay_point_fragment_shader_string =
+  #if defined(__EMSCRIPTEN__)
+R"(#version 300 es
+)"
+  #else
 R"(#version 150
+)"
+  #endif
+R"(  precision mediump float;
   in vec3 color_frag;
   out vec4 outColor;
   void main()
@@ -367,99 +409,119 @@ R"(#version 150
 )";
 
   std::string text_vert_shader =
-R"(#version 330
-    in vec3 position;
-    in float character;
-    in float offset;
-    uniform mat4 view;
-    uniform mat4 proj;
-    out int vCharacter;
-    out float vOffset;
-    void main()
-    {
-      vCharacter = int(character);
-      vOffset = offset;
-      gl_Position = proj * view * vec4(position, 1.0);
-    }
+R"(#version 300 es
+  precision mediump float;
+  in vec3 position;
+  in float character;
+  in float offset;
+  uniform mat4 view;
+  uniform mat4 proj;
+  out int vCharacter;
+  out float vOffset;
+  void main()
+  {
+    vCharacter = int(character);
+    vOffset = offset;
+    gl_Position = proj * view * vec4(position, 1.0);
+  }
 )";
 
   std::string text_geom_shader =
+  #if defined(__EMSCRIPTEN__)
+R"(#version 300 es
+)"
+  #else
 R"(#version 150 core
-    layout(points) in;
-    layout(triangle_strip, max_vertices = 4) out;
-    out vec2 gTexCoord;
-    uniform mat4 view;
-    uniform mat4 proj;
-    uniform vec2 CellSize;
-    uniform vec2 CellOffset;
-    uniform vec2 RenderSize;
-    uniform vec2 RenderOrigin;
-    uniform float TextShiftFactor;
-    in int vCharacter[1];
-    in float vOffset[1];
-    void main()
-    {
-      // Code taken from https://prideout.net/strings-inside-vertex-buffers
-      // Determine the final quad's position and size:
-      vec4 P = gl_in[0].gl_Position + vec4( vOffset[0]*TextShiftFactor, 0.0, 0.0, 0.0 ); // 0.04
-      vec4 U = vec4(1, 0, 0, 0) * RenderSize.x; // 1.0
-      vec4 V = vec4(0, 1, 0, 0) * RenderSize.y; // 1.0
+)"
+  #endif
+R"(  precision mediump float;
+  layout(points) in;
+  layout(triangle_strip, max_vertices = 4) out;
+  out vec2 gTexCoord;
+  uniform mat4 view;
+  uniform mat4 proj;
+  uniform vec2 CellSize;
+  uniform vec2 CellOffset;
+  uniform vec2 RenderSize;
+  uniform vec2 RenderOrigin;
+  uniform float TextShiftFactor;
+  in int vCharacter[1];
+  in float vOffset[1];
+  void main()
+  {
+    // Code taken from https://prideout.net/strings-inside-vertex-buffers
+    // Determine the final quad's position and size:
+    vec4 P = gl_in[0].gl_Position + vec4( vOffset[0]*TextShiftFactor, 0.0, 0.0, 0.0 ); // 0.04
+    vec4 U = vec4(1, 0, 0, 0) * RenderSize.x; // 1.0
+    vec4 V = vec4(0, 1, 0, 0) * RenderSize.y; // 1.0
 
-      // Determine the texture coordinates:
-      int letter = vCharacter[0]; // used to be the character
-      letter = clamp(letter - 32, 0, 96);
-      int row = letter / 16 + 1;
-      int col = letter % 16;
-      float S0 = CellOffset.x + CellSize.x * col;
-      float T0 = CellOffset.y + 1 - CellSize.y * row;
-      float S1 = S0 + CellSize.x - CellOffset.x;
-      float T1 = T0 + CellSize.y;
+    // Determine the texture coordinates:
+    int letter = vCharacter[0]; // used to be the character
+    letter = clamp(letter - 32, 0, 96);
+    int row = letter / 16 + 1;
+    int col = letter % 16;
+    float S0 = CellOffset.x + CellSize.x * col;
+    float T0 = CellOffset.y + 1 - CellSize.y * row;
+    float S1 = S0 + CellSize.x - CellOffset.x;
+    float T1 = T0 + CellSize.y;
 
-      // Output the quad's vertices:
-      gTexCoord = vec2(S0, T1); gl_Position = P - U - V; EmitVertex();
-      gTexCoord = vec2(S1, T1); gl_Position = P + U - V; EmitVertex();
-      gTexCoord = vec2(S0, T0); gl_Position = P - U + V; EmitVertex();
-      gTexCoord = vec2(S1, T0); gl_Position = P + U + V; EmitVertex();
-      EndPrimitive();
-    }
+    // Output the quad's vertices:
+    gTexCoord = vec2(S0, T1); gl_Position = P - U - V; EmitVertex();
+    gTexCoord = vec2(S1, T1); gl_Position = P + U - V; EmitVertex();
+    gTexCoord = vec2(S0, T0); gl_Position = P - U + V; EmitVertex();
+    gTexCoord = vec2(S1, T0); gl_Position = P + U + V; EmitVertex();
+    EndPrimitive();
+  }
 )";
 
   std::string text_frag_shader =
+  #if defined(__EMSCRIPTEN__)
+R"(#version 300 es
+)"
+  #else
 R"(#version 330
-    out vec4 outColor;
-    in vec2 gTexCoord;
-    uniform sampler2D font_atlas;
-    uniform vec3 TextColor;
-    void main()
-    {
-      float A = texture(font_atlas, gTexCoord).r;
-      outColor = vec4(TextColor, A);
-    }
+)"
+  #endif
+R"(  precision mediump float;
+  out vec4 outColor;
+  in vec2 gTexCoord;
+  uniform sampler2D font_atlas;
+  uniform vec3 TextColor;
+  void main()
+  {
+    float A = texture(font_atlas, gTexCoord).r;
+    outColor = vec4(TextColor, A);
+  }
 )";
 
   init_buffers();
   init_text_rendering();
+  std::cout << "MeshGL: Creating mesh shaders" << std::endl;
   create_shader_program(
     mesh_vertex_shader_string,
     mesh_fragment_shader_string,
     {},
     shader_mesh);
+  std::cout << "MeshGL: Creating overlay shaders" << std::endl;
   create_shader_program(
     overlay_vertex_shader_string,
     overlay_fragment_shader_string,
     {},
     shader_overlay_lines);
+  std::cout << "MeshGL: Creating point shaders" << std::endl;
   create_shader_program(
     overlay_vertex_shader_string,
     overlay_point_fragment_shader_string,
     {},
     shader_overlay_points);
+  std::cout << "MeshGL: Creating text shaders" << std::endl;
   create_shader_program(
-    text_geom_shader,
+    //text_geom_shader,
     text_vert_shader,
     text_frag_shader,
     {},
     shader_text);
+  std::cout << "MeshGL: Shader creation complete." << std::endl;
 }
 
 IGL_INLINE void igl::opengl::MeshGL::free()
