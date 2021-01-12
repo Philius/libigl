@@ -277,7 +277,6 @@ namespace glfw
     int frame_counter = 0;
     #ifndef __EMSCRIPTEN__
     const int num_extra_frames = 5;
-    int frame_counter = 0;
     while (!glfwWindowShouldClose(window))
     #else
     if(!loop)
@@ -315,12 +314,13 @@ namespace glfw
           first_time_hack = false;
         }
       #endif
+      #ifdef __EMSCRIPTEN__
       return main_loop(frame_counter);
+      #endif
     }
     #ifdef __EMSCRIPTEN__
     em_loop_payload_t payload {this, frame_counter};
     emscripten_set_main_loop_arg(em_main_loop_callback, &payload, 0, true);
-    #else
     while (main_loop(frame_counter)) {}
     #endif
     return EXIT_SUCCESS;

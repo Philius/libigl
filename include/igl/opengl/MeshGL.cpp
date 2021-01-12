@@ -262,6 +262,33 @@ R"(#version 300 es
 R"(#version 150
 )"
   #endif
+  #if USE_BARYCENTRIC
+R"(  precision mediump float;
+  layout(location=0) in vec4 a_position;
+
+  uniform UBOTransform{
+    mat4 matProjection;
+    mat4 matCameraView;
+    vec3 posCamera;
+  };
+
+  uniform mat4 uModalMatrix;
+
+  out vec3 vBaryCoord;
+
+  void main(void)
+  {
+    if(a_position.w == 0.0)
+      vBaryCoord = vec3(1.0,0.0,0.0);
+    else if(a_position.w == 1.0)
+      vBaryCoord = vec3(0.0,1.0,0.0);
+    else
+      vBaryCoord = vec3(0.0,0.0,1.0);
+
+    gl_Position =  matProjection * matCameraView * uModalMatrix * vec4(a_position.xyz, 1.0);
+  }
+)";
+  #else
 R"(  precision mediump float;
   uniform mat4 view;
   uniform mat4 proj;
@@ -291,6 +318,7 @@ R"(  precision mediump float;
     texcoordi = texcoord;
   }
 )";
+  #endif
 
   std::string mesh_fragment_shader_string =
   #if defined(__EMSCRIPTEN__)
@@ -300,6 +328,43 @@ R"(#version 300 es
 R"(#version 150
 )"
   #endif
+  #if USE_BARYCENTRIC
+R"(  precision mediump float;
+
+  in vec3 vBaryCoord;
+
+  out vec4 outColor;
+
+  float edgeFactor(){
+      vec3 d = fwidth(vBaryCoord);
+      vec3 a3 = smoothstep(vec3(0.0), d*1.5, vBaryCoord);
+      return min(min(a3.x, a3.y), a3.z);
+  }
+
+  const float uLineWidth = 0.005;
+  const float uFeather = 0.003;
+  const vec4 uLineColor = vec4(0.0,0.0,0.0,1.0);
+  const vec4 uFaceColor = vec4(0.5,0.5,0.5,0.8);
+
+  void main(void)
+  {
+    /*Simple idea of how to color the border*/
+    if(any(lessThan(vBaryCoord, vec3(0.01)))){
+        outColor = uLineColor;
+    }else{
+        outColor = uFaceColor;
+    }
+
+    //Set line width that always stays the same no matter the zoom.
+    //outColor = mix(uLineColor, uFaceColor, edgeFactor());
+
+    //How to set width and feathing, gets bigger/smaller based on zoom.
+    //vec3 bcMix = smoothstep(vec3(uLineWidth),vec3(uLineWidth + uFeather),vBaryCoord);
+    //float cmix = min(min(bcMix.x, bcMix.y), bcMix.z);
+    //outColor = mix(uLineColor, uFaceColor, cmix);
+  }
+)";
+  #else
 R"(  precision mediump float;
   uniform mat4 view;
   uniform mat4 proj;
@@ -349,6 +414,7 @@ R"(  precision mediump float;
     }
   }
 )";
+  #endif
 
   std::string overlay_vertex_shader_string =
   #if defined(__EMSCRIPTEN__)
@@ -409,8 +475,14 @@ R"(  precision mediump float;
 )";
 
   std::string text_vert_shader =
+  #if defined(__EMSCRIPTEN__)
 R"(#version 300 es
-  precision mediump float;
+)"
+  #else
+R"(#version 150
+)"
+  #endif
+  R"(  precision mediump float;
   in vec3 position;
   in float character;
   in float offset;
