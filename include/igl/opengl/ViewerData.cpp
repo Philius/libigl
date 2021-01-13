@@ -865,9 +865,9 @@ IGL_INLINE void igl::opengl::ViewerData::updateGL(
       for (int f=0; f<F.rows();++f)
       {
         std::string faceName = std::to_string(f);
-        face_labels_positions.row(f) = V.row(F.row(f)(0));
-        face_labels_positions.row(f) += V.row(F.row(f)(1));
-        face_labels_positions.row(f) += V.row(F.row(f)(2));
+        face_labels_positions.row(f) = V.row(F.row(f)(0)).head(3);
+        face_labels_positions.row(f) += V.row(F.row(f)(1)).head(3);
+        face_labels_positions.row(f) += V.row(F.row(f)(2)).head(3);
         face_labels_positions.row(f) /= 3.;
         face_labels_positions.row(f) = (faceNormals*0.05).row(f) + face_labels_positions.row(f);
         face_labels_strings.push_back(faceName);
