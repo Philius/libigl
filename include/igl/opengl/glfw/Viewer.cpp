@@ -732,7 +732,7 @@ namespace glfw
       center << 0,0,0;
     }else
     {
-      center = data().V.colwise().sum()/data().V.rows();
+      center = data().V.colwise().sum().head(3)/data().V.rows();
     }
 
     Eigen::Vector3f coord =

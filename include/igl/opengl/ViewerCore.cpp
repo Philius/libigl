@@ -81,7 +81,7 @@ IGL_INLINE void igl::opengl::ViewerCore::get_scale_and_shift_to_fit_mesh(
   auto max_point = V.colwise().maxCoeff();
   auto centroid  = (0.5*(min_point + max_point)).eval();
   shift.setConstant(0);
-  shift.head(centroid.size()) = -centroid.cast<float>();
+  shift.head(3) = -centroid.cast<float>().head(3);
   zoom = 2.0 / (max_point-min_point).array().abs().maxCoeff();
 }
 

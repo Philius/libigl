@@ -890,7 +890,7 @@ IGL_INLINE void igl::opengl::ViewerData::updateGL(
       for (int v=0; v<V.rows();++v)
       {
         std::string vertName = std::to_string(v);
-        vertex_labels_positions.row(v) = (normalized*0.1).row(v) + V.row(v);
+        vertex_labels_positions.row(v) = (normalized*0.1).row(v) + V.row(v).head(3);
         vertex_labels_strings.push_back(vertName);
       }
     }

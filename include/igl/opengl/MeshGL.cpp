@@ -213,8 +213,9 @@ IGL_INLINE void igl::opengl::MeshGL::draw_mesh(bool solid)
 {
   #if defined(__EMSCRIPTEN__)
   // TODO: In webgl, wireframe must be drawn using a shader and barycentric coordinates
-  if (!solid)
-    return;
+  // PA: Done.
+  //if (!solid)
+  //  return;
   #else
   glPolygonMode(GL_FRONT_AND_BACK, solid ? GL_FILL : GL_LINE);
   #endif
@@ -255,7 +256,7 @@ IGL_INLINE void igl::opengl::MeshGL::init()
   }
   is_initialized = true;
   std::string mesh_vertex_shader_string =
-  #if defined(__EMSCRIPTEN__)
+  #if defined(__EMSCRIPTEN__) || USE_BARYCENTRIC
 R"(#version 300 es
 )"
   #else
@@ -263,7 +264,7 @@ R"(#version 150
 )"
   #endif
   #if USE_BARYCENTRIC
-R"(  precision mediump float;
+  /* R"(  precision mediump float;
   layout(location=0) in vec4 a_position;
 
   uniform UBOTransform{
@@ -286,6 +287,41 @@ R"(  precision mediump float;
       vBaryCoord = vec3(0.0,0.0,1.0);
 
     gl_Position =  matProjection * matCameraView * uModalMatrix * vec4(a_position.xyz, 1.0);
+  }
+)";*/
+R"(  precision mediump float;
+  uniform mat4 view;
+  uniform mat4 proj;
+  uniform mat4 normal_matrix;
+  in vec4 position;
+  in vec3 normal;
+  out vec3 position_eye;
+  out vec3 normal_eye;
+  in vec4 Ka;
+  in vec4 Kd;
+  in vec4 Ks;
+  in vec2 texcoord;
+  out vec2 texcoordi;
+  out vec4 Kai;
+  out vec4 Kdi;
+  out vec4 Ksi;
+
+  out vec3 vBaryCoord;
+
+  void main(void)
+  {
+    if(position.w == 0.0)
+      vBaryCoord = vec3(1.0,0.0,0.0);
+    else if(position.w == 1.0)
+      vBaryCoord = vec3(0.0,1.0,0.0);
+    else
+      vBaryCoord = vec3(0.0,0.0,1.0);
+
+    gl_Position = proj * view * vec4(position.xyz, 1.0);
+    Kai = Ka;
+    Kdi = Kd;
+    Ksi = Ks;
+    texcoordi = texcoord;
   }
 )";
   #else
@@ -321,7 +357,7 @@ R"(  precision mediump float;
   #endif
 
   std::string mesh_fragment_shader_string =
-  #if defined(__EMSCRIPTEN__)
+  #if defined(__EMSCRIPTEN__) || USE_BARYCENTRIC
 R"(#version 300 es
 )"
   #else
@@ -417,7 +453,7 @@ R"(  precision mediump float;
   #endif
 
   std::string overlay_vertex_shader_string =
-  #if defined(__EMSCRIPTEN__)
+  #if defined(__EMSCRIPTEN__) || USE_BARYCENTRIC
 R"(#version 300 es
 )"
   #else
@@ -439,7 +475,7 @@ R"(  precision mediump float;
 )";
 
   std::string overlay_fragment_shader_string =
-  #if defined(__EMSCRIPTEN__)
+  #if defined(__EMSCRIPTEN__) || USE_BARYCENTRIC
 R"(#version 300 es
 )"
   #else
@@ -456,7 +492,7 @@ R"(  precision mediump float;
 )";
 
   std::string overlay_point_fragment_shader_string =
-  #if defined(__EMSCRIPTEN__)
+  #if defined(__EMSCRIPTEN__) || USE_BARYCENTRIC
 R"(#version 300 es
 )"
   #else
@@ -475,7 +511,7 @@ R"(  precision mediump float;
 )";
 
   std::string text_vert_shader =
-  #if defined(__EMSCRIPTEN__)
+  #if defined(__EMSCRIPTEN__) || USE_BARYCENTRIC
 R"(#version 300 es
 )"
   #else
@@ -499,7 +535,7 @@ R"(#version 150
 )";
 
   std::string text_geom_shader =
-  #if defined(__EMSCRIPTEN__)
+  #if defined(__EMSCRIPTEN__) || USE_BARYCENTRIC
 R"(#version 300 es
 )"
   #else
@@ -547,7 +583,7 @@ R"(  precision mediump float;
 )";
 
   std::string text_frag_shader =
-  #if defined(__EMSCRIPTEN__)
+  #if defined(__EMSCRIPTEN__) || USE_BARYCENTRIC
 R"(#version 300 es
 )"
   #else
